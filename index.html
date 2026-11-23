@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG 檢索增強生成入門｜LLM Wiki 教學簡報</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --accent2: #34d399;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(148, 163, 184, 0.2);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.08);
+      width: 100%;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.3s ease;
+    }
+    .deck {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 960px;
+      min-height: 520px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 44px 48px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      flex-direction: column;
+      justify-content: space-between;
+      animation: fadeIn 0.25s ease;
+    }
+    .slide.active { display: flex; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tag {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      width: fit-content;
+    }
+    h1 { font-size: 40px; line-height: 1.25; margin-bottom: 16px; }
+    h2 { font-size: 30px; line-height: 1.3; margin-bottom: 20px; color: var(--accent); }
+    p, li { font-size: 19px; line-height: 1.65; color: #e2e8f0; }
+    ul { padding-left: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .analogy {
+      margin-top: 22px;
+      padding: 16px 20px;
+      border-left: 4px solid var(--accent2);
+      background: rgba(52, 211, 153, 0.08);
+      border-radius: 0 12px 12px 0;
+      font-size: 17px;
+    }
+    .analogy strong { color: var(--accent2); }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .step {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 10px;
+      text-align: center;
+      font-size: 15px;
+    }
+    .step span {
+      display: block;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .footer-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      background: rgba(15, 23, 42, 0.9);
+      border-top: 1px solid var(--border);
+    }
+    .btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .counter { font-size: 15px; color: var(--muted); }
+    .wiki-link { color: var(--accent); text-decoration: none; font-size: 15px; }
+    .wiki-link:hover { text-decoration: underline; }
+    @media (max-width: 768px) {
+      .slide { padding: 28px 24px; min-height: 440px; }
+      h1 { font-size: 28px; }
+      h2 { font-size: 23px; }
+      p, li { font-size: 16px; }
+      .pipeline { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+  <main class="deck">
+    <!-- Slide 1 -->
+    <section class="slide active">
+      <div>
+        <div class="tag">LLM Wiki 知識庫驅動教學簡報</div>
+        <h1>什麼是 RAG？<br/>讓 AI 回答前先「翻書查資料」</h1>
+        <p style="color: var(--muted);">基於 5 篇結構化 LLM Wiki 筆記整理，專為新手設計的互動式概念導覽。</p>
+      </div>
+      <div class="analogy">
+        <strong>核心一句話：</strong>RAG（檢索增強生成）＝ 先幫 AI 找出相關資料（Retrieval），再請它根據資料寫出回答（Generation）。
+      </div>
+    </section>
+
+    <!-- Slide 2 -->
+    <section class="slide">
+      <div>
+        <div class="tag">01 / Why RAG</div>
+        <h2>為什麼 AI 有時候會「胡說八道」？</h2>
+        <ul>
+          <li><strong>知識截止：</strong>模型訓練完成後的新資訊或內部規定，它並不知道。</li>
+          <li><strong>幻覺現象：</strong>遇到不確定的問題時，模型為了把句子接順，可能編造看似合理卻錯誤的內容。</li>
+        </ul>
+      </div>
+      <div class="analogy">
+        <strong>生活比喻：</strong>就像一位讀過很多書、但考試時不准帶參考書的學生，遇到冷門題目只好硬猜。
+      </div>
+    </section>
+
+    <!-- Slide 3 -->
+    <section class="slide">
+      <div>
+        <div class="tag">02 / Embedding</div>
+        <h2>電腦怎麼看懂文字的「意思」？</h2>
+        <ul>
+          <li><strong>Embedding（向量化）：</strong>把文字轉成一串數字座標（向量），讓電腦能用數學計算語意關係。</li>
+          <li><strong>語意距離：</strong>意思越相近的詞句，在向量空間中的距離越近；無關的則距離遠。</li>
+        </ul>
+      </div>
+      <div class="analogy">
+        <strong>生活比喻：</strong>「小狗」與「幼犬」在語意地圖上靠得很近；「小狗」與「微積分」則相距甚遠。
+      </div>
+    </section>
+
+    <!-- Slide 4 -->
+    <section class="slide">
+      <div>
+        <div class="tag">03 / Chunking</div>
+        <h2>為什麼要把長文章切成小塊？</h2>
+        <ul>
+          <li><strong>避免資訊稀釋：</strong>整份長文件直接塞給模型，重點容易被淹沒，也佔用上下文空間。</li>
+          <li><strong>Chunk Overlap（重疊）：</strong>相鄰區塊保留一點重疊字數，避免句子在切分處斷裂。</li>
+        </ul>
+      </div>
+      <div class="analogy">
+        <strong>生活比喻：</strong>把厚重教科書拆成好翻閱的筆記卡，並在卡片邊緣留一點前文銜接。
+      </div>
+    </section>
+
+    <!-- Slide 5 -->
+    <section class="slide">
+      <div>
+        <div class="tag">04 / Vector Search</div>
+        <h2>如何從大量資料中快速找到答案？</h2>
+        <ul>
+          <li><strong>向量資料庫：</strong>儲存大量文字向量，並快速比對「問題向量」與「文件向量」的相似度。</li>
+          <li><strong>Top-K 檢索：</strong>挑出最相關的前 K 個段落，必要時搭配關鍵字搜尋（Hybrid Search）。</li>
+        </ul>
+      </div>
+      <div class="analogy">
+        <strong>生活比喻：</strong>不是逐頁翻整座圖書館，而是直接用索引鎖定最相關的幾個章節。
+      </div>
+    </section>
+
+    <!-- Slide 6 -->
+    <section class="slide">
+      <div>
+        <div class="tag">05 / RAG Pipeline & Evaluation</div>
+        <h2>RAG 完整運作流程與評估重點</h2>
+        <div class="pipeline">
+          <div class="step"><span>Step 1</span>切分與建庫</div>
+          <div class="step"><span>Step 2</span>問題轉向量</div>
+          <div class="step"><span>Step 3</span>檢索 Top-K</div>
+          <div class="step"><span>Step 4</span>組裝 Prompt</div>
+          <div class="step"><span>Step 5</span>生成回答</div>
+        </div>
+        <ul style="margin-top: 20px;">
+          <li><strong>評估關鍵：</strong>看「檢索準不準」以及回答是否忠於資料（Faithfulness），避免 AI 亂加料。</li>
+        </ul>
+      </div>
+      <div class="analogy">
+        <strong>總結：</strong>先查對資料、再生成答案，讓 AI 回答更有根據、更容易驗證。
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer-nav">
+    <button class="btn" id="prevBtn" onclick="changeSlide(-1)">← 上一頁</button>
+    <div style="display: flex; align-items: center; gap: 18px;">
+      <span class="counter" id="counter">1 / 6</span>
+      <a class="wiki-link" href="./wiki/01_Why_RAG.md" target="_blank">查看原始 Wiki →</a>
+    </div>
+    <button class="btn" id="nextBtn" onclick="changeSlide(1)">下一頁 →</button>
+  </footer>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const counter = document.getElementById('counter');
+    const progress = document.getElementById('progress');
+    let current = 0;
+
+    function render() {
+      slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
+      counter.textContent = `${current + 1} / ${slides.length}`;
+      progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+      prevBtn.disabled = current === 0;
+      nextBtn.disabled = current === slides.length - 1;
+    }
+
+    function changeSlide(delta) {
+      const next = current + delta;
+      if (next >= 0 && next < slides.length) {
+        current = next;
+        render();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+      if (e.key === 'ArrowLeft') changeSlide(-1);
+    });
+
+    render();
+  </script>
+</body>
+</html>
